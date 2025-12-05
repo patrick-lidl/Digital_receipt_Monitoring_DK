@@ -1,0 +1,298 @@
+parameters:
+  - name: deploymentStage
+    displayName: Deployment Stage
+    type: string
+    default: DEV
+    values:
+      - DEV
+      - QAS
+      - PRD
+  - name: clearUnityCatalog
+    displayName: Re-Create Unity Catalog Schema
+    type: boolean
+    default: false
+
+trigger: none
+
+variables:
+  - name: projectId
+    value: cdspch
+  - name: deploymentStage
+    value: ${{ parameters.deploymentStage }}
+  - name: pythonVersion
+    value: 3.12
+  - name: schemaName
+    value: cdspch
+  - name: immutableSchemaName
+    value: historical
+  - name: volumeName
+    value: artifactory
+  - ${{ if eq(parameters.deploymentStage, 'DEV') }}:
+      - name: deploymentStageShort
+        value: e
+      - name: databricksWorkspaceUrl
+        value: "https://adb-1444528849830398.18.azuredatabricks.net/"
+      - name: catalogName
+        value: uapc_e_prj_cdspch_catalog
+  - ${{ if eq(parameters.deploymentStage, 'QAS') }}:
+      - name: deploymentStageShort
+        value: q
+      - name: databricksWorkspaceUrl
+        value: "https://adb-4928688520152582.2.azuredatabricks.net/"
+      - name: catalogName
+        value: uapc_q_prj_cdspch_catalog
+  - ${{ if eq(parameters.deploymentStage, 'PRD') }}:
+      - name: deploymentStageShort
+        value: p
+      - name: databricksWorkspaceUrl
+        value: "https://adb-5726873108627908.8.azuredatabricks.net/"
+      - name: catalogName
+        value: uapc_p_prj_cdspch_catalog
+  - name: changeDetected
+    value: False
+
+resources:
+  containers:
+    - container: uapc-base
+      image: schwarzit-xx-sit-uapc-plf-public-docker-local.jfrog.io/uapc-project:v1.1.0
+      endpoint: uapc-platform-docker-shared
+
+stages:
+  - template: init.yaml
+  - stage: deploy_databricks_resources
+    displayName: Deploy to databricks
+    pool:
+      name: UAPC-Container-ScaleSet-$(deploymentStage)
+    dependsOn:
+      - init
+    variables:
+      servicePrincipalClientId: $[ stageDependencies.init.labels_and_credentials.outputs['credentials.servicePrincipalClientId'] ]
+      servicePrincipalSecret: $[ stageDependencies.init.labels_and_credentials.outputs['credentials.servicePrincipalSecret'] ]
+      artifactoryUser: $[ stageDependencies.init.labels_and_credentials.outputs['credentials.artifactoryUser'] ]
+      artifactoryApiKey: $[ stageDependencies.init.labels_and_credentials.outputs['credentials.artifactoryApiKey'] ]
+    jobs:
+      - job: databricks_deployment
+        displayName: "Deploy Databricks"
+        workspace:
+          clean: all
+        container: uapc-base
+        steps:
+          - checkout: self
+            fetchDepth: 0
+          - bash: |
+              set -euo pipefail
+
+              MODULE_NAME=$(sed -n 's/^ *name.*=.*"\([^"]*\)".*/\1/p' pyproject.toml | head -n 1)
+              MODULE_VERSION=$(sed -n 's/^ *version.*=.*"\([^"]*\)".*/\1/p' pyproject.toml)
+
+              # Replace underscore with minus and vice versa
+              JFROG_DIR=${MODULE_NAME//_/-}
+              MODULE_NAME=${MODULE_NAME//-/_}
+
+              echo "##vso[task.setvariable variable=jfrog_dir]${JFROG_DIR}"
+              echo "##vso[task.setvariable variable=module_name]${MODULE_NAME}"
+              echo "##vso[task.setvariable variable=module_version]${MODULE_VERSION}"
+            displayName: "Update labels"
+          - bash: |
+              set -euo pipefail
+
+              DATABRICKS_RESOURCE_ID=2ff814a6-3304-4ab8-85cb-cd0e6f879c1d
+              SCHWARZ_IT_TENANT_ID=d04f4717-5a6e-4b98-b3f9-6918e0385f4c
+
+              AAD_RESPONSE=$(curl --fail -X GET -H 'Content-Type: application/x-www-form-urlencoded' \
+              -d "grant_type=client_credentials&client_id=$(servicePrincipalClientId)&client_secret=$(servicePrincipalSecret)&resource=$DATABRICKS_RESOURCE_ID" \
+              https://login.microsoftonline.com/$SCHWARZ_IT_TENANT_ID/oauth2/token)
+
+              AAD_TOKEN=$(echo $AAD_RESPONSE | jq -r .access_token)
+              echo "##vso[task.setvariable variable=databricksAadToken;isOutput=true;issecret=true]${AAD_TOKEN}"
+            name: retrieve_aad_token_databricks
+            displayName: "Retrieve Azure Active Directory token for Databricks"
+          - bash: |
+              # Check if the schema exists
+              schema_exists=$(curl -s -H "Authorization: Bearer $(retrieve_aad_token_databricks.databricksAadToken)" \
+              "$(databricksWorkspaceUrl)/api/2.1/unity-catalog/schemas/$(catalogName).$(schemaName)" | jq -r '.error_code')
+
+              if [ "$schema_exists" != "SCHEMA_DOES_NOT_EXIST" ]; then
+                echo -e "Schema $(catalogName).$(schemaName) exists. Deleting and recreating...\n"
+                curl -X DELETE -H "Authorization: Bearer $(retrieve_aad_token_databricks.databricksAadToken)" \
+                "$(databricksWorkspaceUrl)/api/2.1/unity-catalog/schemas/$(catalogName).$(schemaName)?force=true"
+              else
+                echo "Schema $(catalogName).$(schemaName) does not exist."
+              fi
+
+              # Create schema
+              curl -X POST -H "Authorization: Bearer $(retrieve_aad_token_databricks.databricksAadToken)" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "name": "'"$(schemaName)"'",
+                "catalog_name": "'"$(catalogName)"'"
+              }' \
+              "$(databricksWorkspaceUrl)/api/2.1/unity-catalog/schemas"
+              echo -e "\nSchema $(catalogName).$(schemaName) was created."
+            displayName: "Delete & Recreate UC schema"
+            condition: eq('${{ parameters.clearUnityCatalog }}', true)
+          - bash: |
+              # Check if the schema exists
+              schema_exists=$(curl -s -H "Authorization: Bearer $(retrieve_aad_token_databricks.databricksAadToken)" \
+              "$(databricksWorkspaceUrl)/api/2.1/unity-catalog/schemas/$(catalogName).$(immutableSchemaName)" | jq -r '.error_code')
+
+              if [ "$schema_exists" != "SCHEMA_DOES_NOT_EXIST" ]; then
+                echo "Schema $(catalogName).$(immutableSchemaName) already exists."
+              else
+                # Create schema
+                curl -X POST -H "Authorization: Bearer $(retrieve_aad_token_databricks.databricksAadToken)" \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "name": "'"$(immutableSchemaName)"'",
+                  "catalog_name": "'"$(catalogName)"'"
+                }' \
+                "$(databricksWorkspaceUrl)/api/2.1/unity-catalog/schemas"
+                echo -e "\nSchema $(catalogName).$(immutableSchemaName) was created."
+              fi
+            displayName: "Create UC immutable schema, if it doesn't exist"
+          - bash: |
+              curl -X POST -H "Authorization: Bearer $(retrieve_aad_token_databricks.databricksAadToken)" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "name": "'"$(volumeName)"'",
+                "catalog_name": "'"$(catalogName)"'",
+                "schema_name": "'"$(schemaName)"'",
+                "volume_type": "MANAGED"
+              }' \
+              "$(databricksWorkspaceUrl)/api/2.1/unity-catalog/volumes"
+              echo -e "\nVolume $(catalogName).$(schemaName).$(volumeName) was created."
+
+              # Grant cluster creators permissions to read files on your volume
+              databricks grants update volume $(catalogName).$(schemaName).$(volumeName) --json '{
+                "changes": [
+                  {
+                    "principal":"uapc-ch-$(deploymentStageShort)-prj-cdspch-admin",
+                    "add": ["APPLY_TAG","READ_VOLUME","WRITE_VOLUME","MANAGE"]
+                  },
+                  {
+                    "principal":"uapc-ch-$(deploymentStageShort)-prj-cdspch-contributor",
+                    "add": ["APPLY_TAG","READ_VOLUME","WRITE_VOLUME"]
+                  }
+                ]
+              }'
+
+              echo "MANAGE permissions for volume $(catalogName).$(schemaName).$(volumeName) were granted."
+            displayName: "Delete & Recreate UC volume"
+            condition: eq('${{ parameters.clearUnityCatalog }}', true)
+            env:
+              DATABRICKS_TOKEN: $(retrieve_aad_token_databricks.databricksAadToken)
+              DATABRICKS_HOST: $(databricksWorkspaceUrl)
+          - bash: |
+              wheel_file="$(module_name)-$(module_version)-py3-none-any.whl"
+
+              # Render the Jinja template
+              sed -e "s/{{ catalog_name }}/$(catalogName)/" \
+                  -e "s/{{ schema_name }}/$(schemaName)/" \
+                  -e "s/{{ volume_name }}/$(volumeName)/" \
+                  -e "s/{{ wheel_file }}/$(basename "$wheel_file")/" \
+                  azure_pipelines/cluster_init_template.sh.j2 > cluster_init.sh
+
+              databricks fs cp --overwrite 'cluster_init.sh' 'dbfs:/Volumes/$(catalogName)/$(schemaName)/$(volumeName)/cluster_init.sh'
+            displayName: "Write init script to UC volume"
+            env:
+              DATABRICKS_TOKEN: $(retrieve_aad_token_databricks.databricksAadToken)
+              DATABRICKS_HOST: $(databricksWorkspaceUrl)
+          - bash: |
+              # Recreate shared workspace folder
+              databricks workspace delete --recursive /Shared/$(projectId) || true
+              databricks workspace mkdirs /Shared/$(projectId)
+
+              directories=("assets" "config" "sql" "src")
+              for dir in "${directories[@]}"; do
+                if [ -d "$dir" ]; then
+                  databricks workspace import-dir --overwrite $dir /Shared/$(projectId)/$dir
+                fi
+              done
+
+              file_name="run_task.py"
+              file_path="src/core/$file_name"
+              if test -f $file_path; then
+                databricks workspace import /Shared/$(projectId)/$file_name --language=PYTHON --file=$file_path
+              fi
+            displayName: "Deploying files to Databricks workspace"
+            env:
+              DATABRICKS_TOKEN: $(retrieve_aad_token_databricks.databricksAadToken)
+              DATABRICKS_HOST: $(databricksWorkspaceUrl)
+          - bash: |
+              set -ux
+
+              # Reset variable
+              echo "##vso[task.setvariable variable=changeDetected]false"
+
+              curl --output /dev/null --silent --head --fail --location \
+                "https://$(artifactoryUser):$(artifactoryApiKey)@schwarzit.jfrog.io/artifactory/xx-sit-odj-uapc-$(projectId)-pypi-local/$(jfrog_dir)/$(module_version)/$(module_name)-$(module_version)-py3-none-any.whl"
+
+              if [ $? -eq 0 ]; then
+                echo "Python Wheel for $(module_name)-$(module_version) already published in Artifactory."
+              else
+                echo "##vso[task.setvariable variable=changeDetected]true"
+              fi
+            displayName: "Check for new package version"
+          - bash: |
+              # Replacement for 'UsePythonVersion'. Creates a venv and adds it's path to the $PATH for future tasks
+              python$(pythonVersion) -m venv prj-venv &&
+              echo "##vso[task.prependpath]$(pwd)/prj-venv/bin"
+            displayName: "Prepare Python environment"
+          - bash: |
+              pip install uv
+            displayName: "Install UV"
+            condition: eq(variables['changeDetected'], 'True')
+            env:
+              PIP_INDEX_URL: https://$(artifactoryUser):$(artifactoryApiKey)@schwarzit.jfrog.io/artifactory/api/pypi/pypi/simple
+          - bash: |
+              set -euo pipefail
+              export PATH=$HOME/.local/bin:$PATH
+
+              uv build --wheel
+
+              uv publish --index jfrog-cdspch --username=$(artifactoryUser) --password=$(artifactoryApiKey)
+            displayName: "Build and publish wheel"
+            condition: eq(variables['changeDetected'], 'True')
+            env:
+              UV_INDEX_JFROG_PYPI_USERNAME: $(artifactoryUser)
+              UV_INDEX_JFROG_PYPI_PASSWORD: $(artifactoryApiKey)
+              UV_INDEX_JFROG_CDSPCH_USERNAME: $(artifactoryUser)
+              UV_INDEX_JFROG_CDSPCH_PASSWORD: $(artifactoryApiKey)
+          - bash: |
+              set -euo pipefail
+
+              wheel_file="$(module_name)-$(module_version)-py3-none-any.whl"
+
+              # Download the wheel file using curl
+              curl --output $wheel_file --silent --location \
+                "https://$(artifactoryUser):$(artifactoryApiKey)@schwarzit.jfrog.io/artifactory/xx-sit-odj-uapc-$(projectId)-pypi-local/$(jfrog_dir)/$(module_version)/$wheel_file"
+
+              # Verify the download
+              if [ -f "$wheel_file" ]; then
+                echo "Wheel file downloaded successfully."
+              else
+                echo "Failed to download wheel file."
+                exit 1
+              fi
+
+              echo "Copying $wheel_file to databricks..."
+              databricks fs cp --overwrite "$(readlink -f "$wheel_file")" "dbfs:/Volumes/$(catalogName)/$(schemaName)/$(volumeName)/$(basename "$wheel_file")"
+            displayName: "Download built wheel and export to UC Volume"
+            env:
+              DATABRICKS_TOKEN: $(retrieve_aad_token_databricks.databricksAadToken)
+              DATABRICKS_HOST: $(databricksWorkspaceUrl)
+          - bash: |
+              # python$(pythonVersion) -m venv env && source ./env/bin/activate
+
+              # Install only deployment dependencies
+              python -m pip install -r azure_pipelines/requirements.txt
+
+              # Add src to PYTHONPATH
+              export PYTHONPATH=$(pwd)/src
+
+              python azure_pipelines/deploy_clusters_and_jobs.py --stage $(deploymentStageShort)
+            displayName: "Recreate cluster and jobs on databricks"
+            env:
+              PIP_INDEX_URL: https://$(artifactoryUser):$(artifactoryApiKey)@schwarzit.jfrog.io/artifactory/api/pypi/pypi/simple
+              DATABRICKS_TOKEN: $(retrieve_aad_token_databricks.databricksAadToken)
+              DATABRICKS_HOST: $(databricksWorkspaceUrl)
