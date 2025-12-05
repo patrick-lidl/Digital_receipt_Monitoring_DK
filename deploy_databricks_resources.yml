@@ -15,14 +15,14 @@ parameters:
 trigger: none
 
 variables:
-  - name: projectId
-    value: cdspch
+  - name: projectId_DK
+    value: cdspdk
   - name: deploymentStage
     value: ${{ parameters.deploymentStage }}
   - name: pythonVersion
-    value: 3.12
+    value: 3.13
   - name: schemaName
-    value: cdspch
+    value: cdspdk
   - name: immutableSchemaName
     value: historical
   - name: volumeName
@@ -33,21 +33,21 @@ variables:
       - name: databricksWorkspaceUrl
         value: "https://adb-1444528849830398.18.azuredatabricks.net/"
       - name: catalogName
-        value: uapc_e_prj_cdspch_catalog
+        value: uapc_e_prj_cdspdk_catalog
   - ${{ if eq(parameters.deploymentStage, 'QAS') }}:
       - name: deploymentStageShort
         value: q
       - name: databricksWorkspaceUrl
         value: "https://adb-4928688520152582.2.azuredatabricks.net/"
       - name: catalogName
-        value: uapc_q_prj_cdspch_catalog
+        value: uapc_q_prj_cdspdk_catalog
   - ${{ if eq(parameters.deploymentStage, 'PRD') }}:
       - name: deploymentStageShort
         value: p
       - name: databricksWorkspaceUrl
         value: "https://adb-5726873108627908.8.azuredatabricks.net/"
       - name: catalogName
-        value: uapc_p_prj_cdspch_catalog
+        value: uapc_p_prj_cdspdk_catalog
   - name: changeDetected
     value: False
 
@@ -166,11 +166,11 @@ stages:
               databricks grants update volume $(catalogName).$(schemaName).$(volumeName) --json '{
                 "changes": [
                   {
-                    "principal":"uapc-ch-$(deploymentStageShort)-prj-cdspch-admin",
+                    "principal":"uapc-ch-$(deploymentStageShort)-prj-cdspdk-admin",
                     "add": ["APPLY_TAG","READ_VOLUME","WRITE_VOLUME","MANAGE"]
                   },
                   {
-                    "principal":"uapc-ch-$(deploymentStageShort)-prj-cdspch-contributor",
+                    "principal":"uapc-ch-$(deploymentStageShort)-prj-cdspdk-contributor",
                     "add": ["APPLY_TAG","READ_VOLUME","WRITE_VOLUME"]
                   }
                 ]
@@ -250,14 +250,14 @@ stages:
 
               uv build --wheel
 
-              uv publish --index jfrog-cdspch --username=$(artifactoryUser) --password=$(artifactoryApiKey)
+              uv publish --index jfrog-cdspdk --username=$(artifactoryUser) --password=$(artifactoryApiKey)
             displayName: "Build and publish wheel"
             condition: eq(variables['changeDetected'], 'True')
             env:
               UV_INDEX_JFROG_PYPI_USERNAME: $(artifactoryUser)
               UV_INDEX_JFROG_PYPI_PASSWORD: $(artifactoryApiKey)
-              UV_INDEX_JFROG_CDSPCH_USERNAME: $(artifactoryUser)
-              UV_INDEX_JFROG_CDSPCH_PASSWORD: $(artifactoryApiKey)
+              UV_INDEX_JFROG_cdspdk_USERNAME: $(artifactoryUser)
+              UV_INDEX_JFROG_cdspdk_PASSWORD: $(artifactoryApiKey)
           - bash: |
               set -euo pipefail
 
