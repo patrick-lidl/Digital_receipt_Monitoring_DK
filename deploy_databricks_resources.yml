@@ -15,14 +15,14 @@ parameters:
 trigger: none
 
 variables:
-  - name: projectId_DK
-    value: cdspdk
+  - name: projectId
+    value: cdspch
   - name: deploymentStage
     value: ${{ parameters.deploymentStage }}
   - name: pythonVersion
-    value: 3.13
+    value: 3.12
   - name: schemaName
-    value: cdspdk
+    value: cdspch
   - name: immutableSchemaName
     value: historical
   - name: volumeName
@@ -33,21 +33,21 @@ variables:
       - name: databricksWorkspaceUrl
         value: "https://adb-1444528849830398.18.azuredatabricks.net/"
       - name: catalogName
-        value: uapc_e_prj_cdspdk_catalog
+        value: uapc_e_prj_cdspch_catalog
   - ${{ if eq(parameters.deploymentStage, 'QAS') }}:
       - name: deploymentStageShort
         value: q
       - name: databricksWorkspaceUrl
         value: "https://adb-4928688520152582.2.azuredatabricks.net/"
       - name: catalogName
-        value: uapc_q_prj_cdspdk_catalog
+        value: uapc_q_prj_cdspch_catalog
   - ${{ if eq(parameters.deploymentStage, 'PRD') }}:
       - name: deploymentStageShort
         value: p
       - name: databricksWorkspaceUrl
         value: "https://adb-5726873108627908.8.azuredatabricks.net/"
       - name: catalogName
-        value: uapc_p_prj_cdspdk_catalog
+        value: uapc_p_prj_cdspch_catalog
   - name: changeDetected
     value: False
 
@@ -166,11 +166,11 @@ stages:
               databricks grants update volume $(catalogName).$(schemaName).$(volumeName) --json '{
                 "changes": [
                   {
-                    "principal":"uapc-ch-$(deploymentStageShort)-prj-cdspdk-admin",
+                    "principal":"uapc-ch-$(deploymentStageShort)-prj-cdspch-admin",
                     "add": ["APPLY_TAG","READ_VOLUME","WRITE_VOLUME","MANAGE"]
                   },
                   {
-                    "principal":"uapc-ch-$(deploymentStageShort)-prj-cdspdk-contributor",
+                    "principal":"uapc-ch-$(deploymentStageShort)-prj-cdspch-contributor",
                     "add": ["APPLY_TAG","READ_VOLUME","WRITE_VOLUME"]
                   }
                 ]
@@ -183,17 +183,37 @@ stages:
               DATABRICKS_TOKEN: $(retrieve_aad_token_databricks.databricksAadToken)
               DATABRICKS_HOST: $(databricksWorkspaceUrl)
           - bash: |
+              # Define the wheel file base name once outside the loop
               wheel_file="$(module_name)-$(module_version)-py3-none-any.whl"
+              wheel_basename=$(basename "$wheel_file")
 
-              # Render the Jinja template
-              sed -e "s/{{ catalog_name }}/$(catalogName)/" \
-                  -e "s/{{ schema_name }}/$(schemaName)/" \
-                  -e "s/{{ volume_name }}/$(volumeName)/" \
-                  -e "s/{{ wheel_file }}/$(basename "$wheel_file")/" \
-                  azure_pipelines/cluster_init_template.sh.j2 > cluster_init.sh
+              # Loop over all .j2 files in the init_scripts directory
+              for template in azure_pipelines/init_scripts/*.j2; do
 
-              databricks fs cp --overwrite 'cluster_init.sh' 'dbfs:/Volumes/$(catalogName)/$(schemaName)/$(volumeName)/cluster_init.sh'
-            displayName: "Write init script to UC volume"
+                  # Safety check: skip if no .j2 files are found
+                  [ -e "$template" ] || { echo "No templates found."; continue; }
+
+                  # Extract the final filename by removing the .j2 extension and the directory path
+                  # e.g., azure_pipelines/init_scripts/cluster_init.sh.j2 -> cluster_init.sh
+                  output_file=$(basename "$template" .j2)
+
+                  echo "Processing template: $template -> $output_file"
+
+                  # Render the Jinja-style template using sed
+                  sed -e "s/{{ catalog_name }}/$(catalogName)/" \
+                      -e "s/{{ schema_name }}/$(schemaName)/" \
+                      -e "s/{{ volume_name }}/$(volumeName)/" \
+                      -e "s/{{ wheel_file }}/$wheel_basename/" \
+                      "$template" > "$output_file"
+
+                  echo "Uploading $output_file to UC volume..."
+
+                  # Upload the rendered script to the Unity Catalog Volume
+                  databricks fs cp --overwrite "$output_file" "dbfs:/Volumes/$(catalogName)/$(schemaName)/$(volumeName)/$output_file"
+
+                  echo "Successfully uploaded $output_file."
+              done
+            displayName: "Render and upload init scripts to UC volume"
             env:
               DATABRICKS_TOKEN: $(retrieve_aad_token_databricks.databricksAadToken)
               DATABRICKS_HOST: $(databricksWorkspaceUrl)
@@ -250,14 +270,14 @@ stages:
 
               uv build --wheel
 
-              uv publish --index jfrog-cdspdk --username=$(artifactoryUser) --password=$(artifactoryApiKey)
+              uv publish --index jfrog-cdspch --username=$(artifactoryUser) --password=$(artifactoryApiKey)
             displayName: "Build and publish wheel"
             condition: eq(variables['changeDetected'], 'True')
             env:
               UV_INDEX_JFROG_PYPI_USERNAME: $(artifactoryUser)
               UV_INDEX_JFROG_PYPI_PASSWORD: $(artifactoryApiKey)
-              UV_INDEX_JFROG_cdspdk_USERNAME: $(artifactoryUser)
-              UV_INDEX_JFROG_cdspdk_PASSWORD: $(artifactoryApiKey)
+              UV_INDEX_JFROG_CDSPCH_USERNAME: $(artifactoryUser)
+              UV_INDEX_JFROG_CDSPCH_PASSWORD: $(artifactoryApiKey)
           - bash: |
               set -euo pipefail
 

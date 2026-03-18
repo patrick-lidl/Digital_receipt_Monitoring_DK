@@ -1,0 +1,144 @@
+snowflake_params:
+  # receipt_monitoring_start_date: "2025-05-05"
+  # receipt_monitoring_end_date: "2025-06-01"
+  considered_return_days: 92
+  # receipt_monitoring_store_list:
+  #   - 127
+
+filter_to_cash_only_transactions: True
+
+# A cashier must have N receipts in that week to be considered for flagging
+min_receipts_per_cashier: 30
+min_receipts_per_kpi:
+  "KPI_04: Bons mit Zeilenstornos bis auf 1 Artikel": 2
+  "KPI_05: Bons mit Zeilenstornos nach der letzten Zwischensumme": 2
+  "KPI_06: Bons mit Zeilenstorno des letzten Artikels": 2
+  "KPI_07: Rueckgaben ohne Autorisierung": 2
+  "KPI_09: Rueckgaben ohne Original-Beleg": 3
+  "KPI_10: Bonabbrueche": 2
+
+# Threshold configuration for flagging
+default_red_percentile: 8
+default_orange_percentile: 15
+default_kpi_weighting: 100
+min_population_for_statistical_flag: 10
+
+kpis:
+  "KPI_01: Bons ausserhalb der Oeffnungszeiten inkl. Toleranz":
+    absolute_kpi_threshold: 5
+    orange_percentile: 10
+    kpi_weighting: 50
+  "KPI_02: Rueckgaben ausserhalb der Oeffnungszeiten":
+    absolute_kpi_threshold: 1
+  "KPI_03: Anzahl Zeilenstornos":
+    red_percentile: 3
+    kpi_weighting: 1
+  "KPI_04: Bons mit Zeilenstornos bis auf 1 Artikel":
+    absolute_kpi_threshold: 4
+  "KPI_05: Bons mit Zeilenstornos nach der letzten Zwischensumme":
+    absolute_kpi_threshold: 2
+  "KPI_06: Bons mit Zeilenstorno des letzten Artikels":
+    red_percentile: 8
+  "KPI_07: Rueckgaben ohne Autorisierung":
+    absolute_kpi_threshold: 3
+    orange_percentile: 12
+  "KPI_08: Rueckgaben allgemein":
+    red_percentile: 3
+    orange_percentile: 10
+    kpi_weighting: 5
+  "KPI_09: Rueckgaben ohne Original-Beleg":
+    red_percentile: 5
+    orange_percentile: 10
+  "KPI_10: Bonabbrueche":
+    red_percentile: 5
+    orange_percentile: 10
+    kpi_weighting: 20
+
+avg_red_flags_per_store_per_rl: 3
+num_flags_per_store: 10
+
+# ExportReceiptMonitoringJson
+save_json_to_unity_catalog: true
+save_json_locally: true
+print_pretty: true
+output_path: "output/digital_receipt_monitoring"
+column_mapping:
+  TIMESTAMP: OccurrenceDateTime
+  KASSE: TillNr
+  BEDIENER: ServicerID
+  BON-NR: ReceiptNr
+
+# ReceiptsOutsideStoreHours
+v_opening_hours_tolerance_closing: 15
+v_opening_hours_tolerance_opening: 30
+
+# CalculateM05
+v_n_last_subtotal: 2
+v_distinct_articles_voids_subtotal: 2
+
+# CalculateM07
+v_independant_return_limit: 10
+v_independant_return_minimum: 7
+
+# Report
+report:
+  look_back_weeks: 12
+
+# Logging
+tables_to_archive:
+  - receipt_monitoring_details
+  - cashier_stats
+  - vt_structure
+  - flagged_cashier_kpis
+
+persist_job_run: true
+raise_myapi_error: true
+
+data_quality_checks:
+  # --- Global Settings ---
+  enabled: true
+
+  # --- Local Custom Check Declaration ---
+  custom_checks:
+    stores_red_flag: "digital_receipt_monitoring.utils.checks.StoresRedFlagCheck"
+    kpi_red_flag: "digital_receipt_monitoring.utils.checks.KpiRedFlagCheck"
+    kpi_orange_flag: "digital_receipt_monitoring.utils.checks.KpiOrangeFlagCheck"
+
+  # --- Check Definitions ---
+  checks:
+    receipt_monitoring_details:
+      - type: distinct_count
+        name: "More than 175 stores must have anomalies"
+        column: "FILIALNR"
+        min_threshold: 175
+        on_failure: fail
+
+    flagged_cashier_kpis:
+      - type: distinct_count
+        name: "More than 160 stores must have flags"
+        column: "FILIALNR"
+        min_threshold: 160
+        on_failure: fail
+
+      - type: stores_red_flag
+        name: "More than 100 stores must have red flags"
+        column: "FILIALNR"
+        min_threshold: 100
+        on_failure: fail
+
+      - type: kpi_red_flag
+        name: "Each KPI must have red flags"
+        on_failure: warn
+
+      - type: kpi_orange_flag
+        name: "Each KPI must have orange flags"
+        kpis_without_orange_flags:
+          - "KPI_02: Rueckgaben ausserhalb der Oeffnungszeiten"
+          - "KPI_05: Bons mit Zeilenstornos nach der letzten Zwischensumme"
+        on_failure: warn
+
+      - type: row_count_drift
+        on_failure: warn
+        comparison:
+          type: tolerance_percent
+          value: 30
