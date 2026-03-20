@@ -1,0 +1,41 @@
+base_config:
+  cluster_name: automation_cluster
+  run_path: "/Workspace/Shared/cdspch/run_task.py"
+  email_notifications:
+    on_failure:
+      - kevin.huestis@lidl.ch
+      - christian.heumann@lidl.ch
+    on_success:
+      - kevin.huestis@lidl.ch
+      - christian.heumann@lidl.ch
+  timeout_seconds: 7200
+  health:
+    rules:
+      - metric: RUN_DURATION_SECONDS
+        op: GREATER_THAN
+        value: 3600
+
+digital_receipt_monitoring:
+  # https://www.quartz-scheduler.org/api/2.3.0/org/quartz/CronExpression.html
+  schedule:
+    quartz_cron_expression: 0 30 7 ? * Mon # this is 07:30
+    timezone_id: Europe/Amsterdam
+  tasks:
+    - ReceiptsOutsideStoreHours
+    - CashierStats
+    - ReceiptVoidsCashOnly
+    - CalculateM01
+    - CalculateM02
+    - CalculateM03
+    - CalculateM04
+    - CalculateM05
+    - CalculateM06
+    - CalculateM07
+    - CalculateM08
+    - CalculateM09
+    - CalculateM10
+    - MergeReceiptAnomalies
+    - FlagCashiers
+    - ExportReceiptMonitoringJson
+    - CreateWeeklyReport
+    - JobPostProcessing

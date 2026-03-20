@@ -1,0 +1,2 @@
+calendar_start_date: '2022-01-01'   # NOTE: We only have WEI holidays data going back to 2023
+calendar_end_date: '2026-12-31'

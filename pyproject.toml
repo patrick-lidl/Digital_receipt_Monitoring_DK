@@ -1,0 +1,142 @@
+[project]
+name = "cdspch"
+description = "Data & AI projects for Lidl Switzerland."
+version = "1.13.2"
+readme = "README.md"
+authors = [{ name = "Kevin Huestis", email = "kevin.huestis@lidl.ch" }]
+requires-python = ">=3.11, <3.13"
+dependencies = [
+    "pyyaml",
+    "python-box",
+    "python-dotenv",
+    "colorlog",
+]
+
+# ============================================================================
+#
+# This file is configured to use optional-dependencies for granular installation.
+#
+# --- Common Commands ---
+#
+# Install a minimal environment (e.g., for CI/CD linters):
+# > uv pip install -e .
+#
+# Install a specific project and its dependencies:
+# > uv pip install -e ".[wka]"
+#
+# Install a full environment for development:
+# > uv pip install -e ".[all]"
+#
+# To build using optional dependencies, run:
+# > uv build --wheel
+#
+# ============================================================================
+
+
+[project.optional-dependencies]
+# --- Libraries ---
+ch_utils = [
+    "arakawa",
+    "beautifulsoup4",
+    "jinja2",
+    "markupsafe",
+	"numpy",
+    "pandas",
+    "requests",
+]
+
+core = [
+    "cdspch[ch_utils]",
+    "pyspark>=3",
+]
+
+deployment = [
+    "cdspch[ch_utils]",
+	"cdspch[core]",		# FIXME: uses the config manager
+]
+
+# --- Projects ---
+digital_receipt_monitoring = [
+    "cdspch[core]",
+    "openpyxl>=3.1.5",
+    "plotly",
+    "xlsxwriter>=3.2.0,<4.0.0",
+]
+
+# --- Tooling & Convenience Groups ---
+dev = [
+	"pre-commit",
+	"pytest",
+	"pytest-mock",
+	"mkdocs>=1.6.0",
+	"mkdocs-material>=9.5.0",
+	"mkdocstrings[python]>=0.25.0",
+	"mkdocs-include-markdown-plugin>=6.0.0",
+	"azure-identity",
+    "azure-storage-blob",
+	# "kaleido==0.2.1",	# Needed for saving plotly to png
+]
+
+automation = [
+	"cdspch[digital_receipt_monitoring]",
+]
+
+all = [
+	"cdspch[ch_utils]",
+	"cdspch[core]",
+	"cdspch[deployment]",
+	"cdspch[dev]",
+	"cdspch[digital_receipt_monitoring]",
+]
+
+[[tool.uv.index]]
+name = "jfrog-pypi"
+url = "https://schwarzit.jfrog.io/artifactory/api/pypi/pypi/simple"
+default = true
+
+[[tool.uv.index]]
+name = "jfrog-cdspch"
+url = "https://schwarzit.jfrog.io/artifactory/api/pypi/xx-sit-odj-uapc-cdspch-pypi-local/simple"
+publish-url = "https://schwarzit.jfrog.io/artifactory/api/pypi/xx-sit-odj-uapc-cdspch-pypi-local/"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint]
+# E: pycodestyle, F: pyflakes, I: isort, D: pydocstyle
+select = ["E", "F", "I", "D"]
+# Use Google-style docstrings
+ignore = [
+	"D100", # Missing docstring in public module
+	"D401", # First line of docstring should be in imperative mood
+	"D104", # Missing docstring in public package
+	"D203", # One blank line before class (conflicts with D211)
+	"D205", # 1 blank line required between summary line and description
+	"D212", # Conflicts with Google-style docstrings
+	"D406", # Section name should end with a newline (NumPy-style)
+	"D407", # Missing dashed underline after section (NumPy-style)
+	"D413", # Missing blank line after last section (NumPy-style)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+	"ch_utils",
+	"core",
+	"deployment",
+	"digital_receipt_monitoring",
+]
+combine-as-imports = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+	"src/ch_utils",
+	"src/core",
+	"src/deployment",
+]

@@ -1,0 +1,16 @@
+add_total_picking_area: true
+picking_areas_in_scope:
+  - 10 # Hochregal
+  # - 13 # Zigaretten
+  # - 17 # Leergut (NOTE: nur in WEI)
+  - 20 # Block / Block 1
+  # - 21 # Displays
+  # - 30 # NonFood
+  - 40 # Mopro
+  # - 41 # Mopro 2 / Superfresh
+  # - 50 # Frischfleisch
+  # - 60 # Tiko
+  # - 61 # Bake off
+  # - 70 # OG
+  # - 71 # Blumen
+  # - 72 # Blumen CC / Blumen CCs

@@ -1,0 +1,15 @@
+version: 1
+formatters:
+  colored:
+    (): 'colorlog.ColoredFormatter'
+    format: '%(log_color)s%(asctime)s - %(levelname)s - %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: colored
+    stream: ext://sys.stdout
+root:
+  level: NOTSET
+  handlers: [console]
+  propogate: yes

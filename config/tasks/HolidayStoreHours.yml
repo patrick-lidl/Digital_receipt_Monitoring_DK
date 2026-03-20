@@ -1,0 +1,29 @@
+data_path_local: "data/holidays"
+data_path_on_databricks: "/dbfs/mnt/default/input_data/holidays"
+
+SEZ:
+  sheets: FT-Kalender
+  store_id_column: 0
+  date_row: 6
+
+WEI:
+  sheets: [2023, 2024, 2025, 2026]
+  store_id_column: 1
+  date_row: 3
+
+# Parsing configuration
+standard_keywords:  # should be lowercase
+  - "standard"
+
+closed_keywords:  # should be lowercase
+  - "geschlossen"
+  - "fermé"
+  - "kein av"
+
+entries_to_ignore: # Are interpreted as no change in store hours
+  - "Feiertag in Frankreich"
+  - "Feiertag in Österreich"
+  - "Feiertag in Deutschland"
+  - "Feiertag in Italien"
+  - "<"
+  - "Am warten association et commune"

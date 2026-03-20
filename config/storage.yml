@@ -1,0 +1,29 @@
+unity_catalog:
+  # The catalog is templated to switch between dev/qas/prod
+  catalog: "uapc_{{deploymentStageShort}}_prj_cdspch_catalog"
+
+  # Structured schema definitions for clarity and governance
+  schemas:
+    working: "cdspch"
+    historical: "historical"
+    quality: "quality"
+
+  # Project-specific output volumes for better organization
+  volumes:
+    default: "output"
+    digital_receipt_monitoring: "digital_receipt_monitoring"
+    kolli_prognosis: "kolli_prognosis"
+    # another_project: "another_project_output" # Example for future projects
+
+# Configuration for the local filesystem backend
+filesystem:
+  # The root directory for local data that mimics UC tables
+  local_data_path: "data/unity_catalog"
+
+  # The root directory for local outputs (HTML, JSON) that mimic UC volumes
+  local_output_path: "output"
+
+quality:
+  metrics_table: "pipeline_metrics"
+  results_log_table: "check_results_log"
+  metrics_staging_table: "pipeline_metrics_staging"

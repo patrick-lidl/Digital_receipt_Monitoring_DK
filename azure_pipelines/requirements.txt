@@ -1,0 +1,6 @@
+colorlog
+jinja2
+python-box
+python-dotenv
+pyyaml
+requests

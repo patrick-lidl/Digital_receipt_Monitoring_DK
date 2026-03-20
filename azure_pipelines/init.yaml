@@ -1,0 +1,61 @@
+stages:
+  - stage: init
+    displayName: Initialize Run
+    pool:
+      name: UAPC-Container-ScaleSet-$(deploymentStage)
+    jobs:
+      - job: labels_and_credentials
+        displayName: Generate Labels and Get Credentials
+        container: uapc-base
+        steps:
+          - bash: |
+              # Deployment label is given by branch/tag name with non-alphanumerics replaced by dashes.
+              DEPLOYMENT_LABEL=$(
+                echo -n $(Build.SourceBranch) | sed -r 's%^refs/(heads|tags)/%%' | tr -d $'\n' |
+                tr -s -c '[:alnum:]' '-' | tr '[:upper:]' '[:lower:]'
+              )
+
+              COMMIT_HASH=$(Build.SourceVersion)
+              COMMIT_HASH_SHORT=${COMMIT_HASH:0:8}
+              ARTIFACT_LABEL=${DEPLOYMENT_LABEL}-${COMMIT_HASH_SHORT}
+
+              echo "##vso[task.setvariable variable=deploymentLabel;isOutput=true]${DEPLOYMENT_LABEL}"
+              echo "##vso[task.setvariable variable=artifactLabel;isOutput=true]${ARTIFACT_LABEL}"
+            name: labels
+            displayName: Generate Labels
+          - task: AzureCLI@2
+            name: credentials
+            displayName: Get Credentials
+            inputs:
+              azureSubscription: uapc-$(deploymentStageShort)-azure-resource-manager
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                set -euo pipefail
+
+                KEYVAULT_NAME=uapc-$(deploymentStageShort)-prj-$(projectId)-kv
+
+                SECRET=$(az keyvault secret show \
+                  --name AzureProjectServicePrincipalClientId --vault-name $KEYVAULT_NAME --query value --output tsv)
+                echo "##vso[task.setvariable variable=servicePrincipalClientId;isOutput=true]${SECRET}"
+                echo "$KEYVAULT_NAME: AzureProjectServicePrincipalClientId loaded"
+
+                SECRET=$(az keyvault secret show \
+                  --name AzureProjectServicePrincipalSecret --vault-name $KEYVAULT_NAME --query value --output tsv)
+                echo "##vso[task.setvariable variable=servicePrincipalSecret;isOutput=true;issecret=true]${SECRET}"
+                echo "$KEYVAULT_NAME: AzureProjectServicePrincipalSecret loaded"
+
+                SECRET=$(az keyvault secret show \
+                  --name ArtifactoryTechUserName --vault-name $KEYVAULT_NAME --query value --output tsv)
+                echo "##vso[task.setvariable variable=artifactoryUser;isOutput=true]${SECRET}"
+                echo "$KEYVAULT_NAME: ArtifactoryTechUserName loaded"
+
+                SECRET=$(az keyvault secret show \
+                  --name ArtifactoryTechUserApiKey --vault-name $KEYVAULT_NAME --query value --output tsv)
+                echo "##vso[task.setvariable variable=artifactoryApiKey;isOutput=true;issecret=true]${SECRET}"
+                echo "$KEYVAULT_NAME: ArtifactoryTechUserApiKey loaded"
+
+                SECRET=$(az keyvault secret show \
+                  --name SnykTechUserApiKey --vault-name $KEYVAULT_NAME --query value --output tsv)
+                echo "##vso[task.setvariable variable=snykToken;isOutput=true;issecret=true]${SECRET}"
+                echo "$KEYVAULT_NAME: SnykTechUserApiKey loaded"

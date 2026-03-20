@@ -1,0 +1,10 @@
+#!/bin/bash
+
+export UV_INDEX_JFROG_PYPI_USERNAME=<jfrog-user>
+export UV_INDEX_JFROG_PYPI_PASSWORD=<jfrog-identity-token>
+
+export UV_INDEX_JFROG_COP_USERNAME=<jfrog-user>
+export UV_INDEX_JFROG_COP_PASSWORD=<jfrog-identity-token>
+
+export UV_INDEX_JFROG_CDSPCH_USERNAME=<jfrog-user>
+export UV_INDEX_JFROG_CDSPCH_PASSWORD=<jfrog-identity-token>

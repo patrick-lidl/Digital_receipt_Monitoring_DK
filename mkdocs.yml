@@ -1,0 +1,57 @@
+# Project information
+site_name: "Data & AI @ Lidl Switzerland"
+site_author: "Christian Heumann; Kevin Huestis"
+
+# Theme configuration
+theme:
+  name: material
+  palette:
+    # Palette toggle for light vs dark mode
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - content.code.copy
+    - navigation.instant
+
+# Extensions
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+
+# Plugins
+plugins:
+  - search
+  - include-markdown
+  - mkdocstrings:
+      handlers:
+        python:
+          selection:
+            paths: [src]
+            recursive: true
+
+# Navigation Structure
+nav:
+  - "Home": "index.md"
+  - "First-party Packages":
+      - "CH Utils":
+          - "Overview": "packages/ch_utils_overview.md"
+          - "API Reference": "packages/ch_utils_api.md"
+      - "Core":
+          - "Overview": "packages/core_overview.md"
+          - "API Reference": "packages/core_api.md"
+      - "Deployment":
+          - "Overview": "packages/deployment_overview.md"
+          - "API Reference": "packages/deployment_api.md"
+  - "Projects":
+      - "Digitale Belegprüfung (DBP)":
+          - "Overview": "projects/digital_receipt_monitoring_overview.md"
+          - "Frontend": "projects/digital_receipt_monitoring_frontend.md"
+          - "API Reference": "projects/digital_receipt_monitoring_api.md"
+          - "AIRA": "projects/digital_receipt_monitoring_aira.md"

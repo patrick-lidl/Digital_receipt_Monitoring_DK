@@ -1,0 +1,50 @@
+force_column_names_to_lower: true
+default_database: "UAPC_CDSPCH_CH" # The default connection to use
+
+# Define a base template for all Snowflake connections
+base_connection:
+  account: sit_ino.west-europe.privatelink
+  url: sit_ino.west-europe.privatelink.snowflakecomputing.com
+
+connection_settings:
+  UAPC_CDSPCH_CH:
+    warehouse: WH_UAPC_CDSPCH_CH_S
+    role: R_UAPC_CDSPCH_CH_DBX
+    database: UAPC
+    schema: UAPC_CDSPCH_CH  # Where to write
+    secrets:
+      user: "uapc_snowflake_user"
+      password: "uapc_snowflake_password"
+
+  SSBI_TEC_CH:
+    warehouse: WH_SSBI_LIDL_CO_INT_CDSPCH_CH_XS
+    role: R_SSBI_LIDL_CO_INT_CDSPCH_CH_DBX
+    database: SSBI_LIDL_CO_INT_PRODUCTION
+    schema: CH_FE_MSTR_CO  # Where to write
+    secrets:
+      user: "ssbi_snowflake_user"
+      password: "ssbi_snowflake_password"
+
+# This mapping determines which connection to use for a given table
+database_by_table:
+  bfs_artikel_stammdaten: SSBI_TEC_CH
+  bfs_artikel_bewegungsdaten: SSBI_TEC_CH
+  ek_preis: SSBI_TEC_CH
+  dim_store: SSBI_TEC_CH
+  competitor_stores: SSBI_TEC_CH
+  watch_prod: SSBI_TEC_CH
+  wg_reference: SSBI_TEC_CH
+  store_opening_hours_hist: SSBI_TEC_CH
+  ogm_dashboard_ssbi: SSBI_TEC_CH
+  ogm_beta: SSBI_TEC_CH
+
+# Jinja parameters for SQL rendering
+snowflake_params:
+  common:
+    currency: "CHF"
+    client_id: 4
+  # Default set as needed in OpeningHoursCalendar
+  store_opening_hours:
+    filter_open_stores: false
+    history_start_dt: "2022-01-01"
+    history_end_dt: "2026-12-31"

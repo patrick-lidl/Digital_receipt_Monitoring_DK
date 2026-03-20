@@ -1,0 +1,53 @@
+# Define the base template for all clusters
+base_cluster:
+  spark_version: 17.3.x-scala2.13
+  apply_policy_default_values: false
+  autotermination_minutes: 10
+  azure_attributes:
+    availability: ON_DEMAND_AZURE
+    first_on_demand: 1
+    spot_bid_max_price: -1
+  custom_tags:
+    ResourceClass: SingleNode
+  data_security_mode: SINGLE_USER
+  driver_node_type_id: Standard_D8ads_v5
+  enable_elastic_disk: true
+  enable_local_disk_encryption: false
+  node_type_id: Standard_D8ads_v5
+  num_workers: 0
+  runtime_engine: STANDARD
+  spark_conf:
+    spark.databricks.cluster.profile: singleNode
+    spark.databricks.delta.preview.enabled: "true"
+    spark.databricks.mlflow.autologging.enabled: false
+    spark.master: local[*]  # Updated to utilize all node cores
+  spark_env_vars:
+    PYARROW_IGNORE_TIMEZONE: "1"
+    # Used by core
+    BASE_PATH: /Workspace/Shared/cdspch
+    DATA_PATH: /Workspace/Shared/cdspch/pipeline_outputs
+    SQL_PATH: /Workspace/Shared/cdspch/sql
+    # Needed for Init script, gets secrets from Azure KeyVault
+    ARTIFACTORY_USER: "{{secrets/uapc-prj-kv-secret-scope/ArtifactoryTechUserName}}"
+    ARTIFACTORY_API_KEY: "{{secrets/uapc-prj-kv-secret-scope/ArtifactoryTechUserApiKey}}"
+
+# Define a specific cluster that inherits and overrides the base
+automation_cluster:
+  cluster_name: automation_cluster
+  cluster_log_conf:
+    dbfs:
+      destination: dbfs:/cluster-logs/automation_cluster
+  init_scripts:
+    - volumes:
+        destination: /Volumes/uapc_{{deploymentStageShort}}_prj_cdspch_catalog/cdspch/artifactory/automation_cluster.sh
+
+automation_lite:
+  cluster_name: automation_lite
+  cluster_log_conf:
+    dbfs:
+      destination: dbfs:/cluster-logs/automation_lite
+  # NOTE: Because the run_task notebook adds src to the path, we use ch_utils and core directly from the code
+  #   Therefore theoretically only external packages (which are not included in db by default) need to be loaded
+  init_scripts:
+    - volumes:
+        destination: /Volumes/uapc_{{deploymentStageShort}}_prj_cdspch_catalog/cdspch/artifactory/automation_lite.sh

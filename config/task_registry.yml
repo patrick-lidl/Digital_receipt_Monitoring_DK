@@ -1,0 +1,49 @@
+# Note: subdirectories must be separated with a period instead of a slash
+
+# Digital Receipt Monitoring
+CashierStats:
+  path: digital_receipt_monitoring.tasks.stage_01_data_prep
+ReceiptVoidsCashOnly:
+  path: digital_receipt_monitoring.tasks.stage_01_data_prep
+ReceiptsOutsideStoreHours:
+  path: digital_receipt_monitoring.tasks.stage_01_data_prep
+CalculateM01:
+  path: digital_receipt_monitoring.tasks.stage_02_metrics
+  analysis_function: "_calculate_metric"
+CalculateM02:
+  path: digital_receipt_monitoring.tasks.stage_02_metrics
+  analysis_function: "_calculate_metric"
+CalculateM03:
+  path: digital_receipt_monitoring.tasks.stage_02_metrics
+  analysis_function: "_calculate_metric"
+CalculateM04:
+  path: digital_receipt_monitoring.tasks.stage_02_metrics
+  analysis_function: "_calculate_metric"
+CalculateM05:
+  path: digital_receipt_monitoring.tasks.stage_02_metrics
+  analysis_function: "_calculate_metric"
+CalculateM06:
+  path: digital_receipt_monitoring.tasks.stage_02_metrics
+  analysis_function: "_calculate_metric"
+CalculateM07:
+  path: digital_receipt_monitoring.tasks.stage_02_metrics
+  analysis_function: "_calculate_metric"
+CalculateM08:
+  path: digital_receipt_monitoring.tasks.stage_02_metrics
+  analysis_function: "_calculate_metric"
+CalculateM09:
+  path: digital_receipt_monitoring.tasks.stage_02_metrics
+  analysis_function: "_calculate_metric"
+CalculateM10:
+  path: digital_receipt_monitoring.tasks.stage_02_metrics
+  analysis_function: "_calculate_metric"
+MergeReceiptAnomalies:
+  path: digital_receipt_monitoring.tasks.stage_03_flagging
+FlagCashiers:
+  path: digital_receipt_monitoring.tasks.stage_03_flagging
+ExportReceiptMonitoringJson:
+  path: digital_receipt_monitoring.tasks.stage_04_output
+CreateWeeklyReport:
+  path: digital_receipt_monitoring.tasks.stage_04_output
+JobPostProcessing:
+  path: digital_receipt_monitoring.tasks.stage_04_output

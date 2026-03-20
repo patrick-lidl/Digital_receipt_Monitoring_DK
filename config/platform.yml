@@ -1,0 +1,61 @@
+users:
+  e: 121ae1d4-7078-4fe8-b78e-efc18d939303 # dev: app-sit-uapc-e-prj-cdspch-automation
+  q: 2ce7da38-2d18-43b9-8fa0-e75cf600a34d # qas: app-sit-uapc-q-prj-cdspch-automation
+  p: 4dc0874e-7cc9-4214-b96c-a737b223b462 # prod: app-sit-uapc-p-prj-cdspch-automation
+
+root: /Workspace/Shared/cdspch/
+
+my_api_urls:
+  token:
+    e: "https://dev.api.schwarz/oauth/accesstoken/v2"
+    q: "https://qas.api.schwarz/oauth/accesstoken/v2"
+    p: "https://live.api.schwarz/oauth/accesstoken/v2"
+  lchdatagate:
+    e: "https://dev.api.schwarz/sit/lchdatagte/dbp/v1/DBP"
+    q: "https://qas.api.schwarz/sit/lchdatagte/dbp/v1/DBP"
+    p: "https://live.api.schwarz/sit/lchdatagte/dbp/v1/DBP"
+
+# Define the scope once for the entire environment
+secret_scope: "uapc-prj-kv-secret-scope"
+
+# Needed for loading from data store
+azure_storage_account: "dlssdspuszdl101prod"
+azure_tenant_id: "d04f4717-5a6e-4b98-b3f9-6918e0385f4c"
+
+secrets:
+  # Logical Name
+  azure_secret:
+    key: "AzureProjectServicePrincipalSecret"
+    env_var: " "
+
+  azure_client_id:
+    key: "AzureProjectServicePrincipalClientId"
+    env_var: " "
+
+  my_api_key:
+    key: "MyApiConsumerDataAiKey" # Key in the vault
+    env_var: "MY_API_KEY" # Name for local .env file
+
+  my_api_secret:
+    key: "MyApiConsumerDataAiSecret"
+    env_var: "MY_API_SECRET"
+
+  uapc_snowflake_user:
+    key: "SnowflakeTechUserName"
+    env_var: "SNOWFLAKE_USER"
+
+  uapc_snowflake_password:
+    key: "SnowflakeTechUserSecret"
+    env_var: "SNOWFLAKE_PASSWORD"
+
+  ssbi_snowflake_user:
+    key: "SsbiCoSnowflakeTechUserName"
+    env_var: "SSBI_SNOWFLAKE_USER"
+
+  ssbi_snowflake_password:
+    key: "SsbiCoSnowflakeTechUserSecret"
+    env_var: "SSBI_SNOWFLAKE_PASSWORD"
+
+  gcp_project_api_key:
+    key: "GcpProjectApiKey"
+    env_var: "GCP_PROJECT_API_KEY"

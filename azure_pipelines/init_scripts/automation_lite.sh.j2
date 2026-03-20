@@ -1,0 +1,8 @@
+#!/bin/bash
+set -ex
+
+# install built wheel on cluster
+# NOTE: jfrog error caused the script to run for over 30 minutes, because retries=5 by default
+pip install --retries 2 '/Volumes/{{ catalog_name }}/{{ schema_name }}/{{ volume_name }}/{{ wheel_file }}[data_products]' \
+    --index-url https://${ARTIFACTORY_USER}:${ARTIFACTORY_API_KEY}@schwarzit.jfrog.io/artifactory/api/pypi/pypi/simple \
+    --extra-index-url https://${ARTIFACTORY_USER}:${ARTIFACTORY_API_KEY}@schwarzit.jfrog.io/artifactory/api/pypi/xx-sit-uapc-cop-pypi-local/simple

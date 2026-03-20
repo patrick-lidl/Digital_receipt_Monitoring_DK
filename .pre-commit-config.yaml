@@ -1,0 +1,36 @@
+repos:
+  # General-purpose Git hygiene hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+
+  # Ruff for linting, formatting, import sorting, and docstring checks
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4 # Use latest stable
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  # Type checking (Ruff doesn't fully replace mypy yet)
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v0.981
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-PyYAML
+          - types-toml
+          - types-python-dateutil
+          - types-requests
+
+  # Jupyter notebook cleanup
+  - repo: https://github.com/roy-ht/pre-commit-jupyter
+    rev: v1.2.1
+    hooks:
+      - id: jupyter-notebook-cleanup
+        args:
+          - --pin-patterns
+          - "[pin];[donotremove]"
